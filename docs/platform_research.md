@@ -1,0 +1,58 @@
+# Platform Research
+
+Five platforms were chosen for having a genuinely simple, stable, well-documented
+public API for posting short text + a link, with a free tier usable within the
+timeframe of this test (no paid developer account, no lengthy OAuth app review).
+
+| Platform | Endpoint used | Auth | Docs |
+|---|---|---|---|
+| Telegram | `POST https://api.telegram.org/bot<token>/sendMessage` | Bot token in URL | https://core.telegram.org/bots/api#sendmessage |
+| Mastodon | `POST /api/v1/statuses` on the configured instance | OAuth2 bearer access token | https://docs.joinmastodon.org/methods/statuses/#create |
+| Discord | `POST <incoming webhook URL>?wait=true` | The webhook URL itself | https://discord.com/developers/docs/resources/webhook#execute-webhook |
+| Dev.to | `POST https://dev.to/api/articles` | `api-key` header | https://developers.forem.com/api/v1#tag/articles/operation/createArticle |
+| Bluesky | `POST /xrpc/com.atproto.server.createSession` then `POST /xrpc/com.atproto.repo.createRecord` | App password → short-lived JWT | https://docs.bsky.app/docs/api/com-atproto-server-create-session, https://docs.bsky.app/docs/api/com-atproto-repo-create-record |
+
+## Per-platform notes
+
+**Telegram** — simplest integration: one authenticated POST, JSON in, JSON out. A
+public permalink (`https://t.me/<username>/<id>`) only exists if the bot is posting to
+a channel with a public `@username`; a private group has no equivalent public URL, so
+the adapter reports `public_access: false` in that case rather than guessing one.
+
+**Mastodon** — `POST /api/v1/statuses` with `visibility: "public"` makes the post
+genuinely public (listed on public/federated timelines, viewable with no auth), which
+the adapter confirms from the response's own `visibility` field rather than assuming it.
+
+**Discord** — a webhook is scoped to one channel and requires no OAuth flow, making it
+the fastest platform to set up from scratch. Its "posted URL" is honest about a real
+limitation: a Discord message link only resolves for someone who already has access to
+that server, so `public_access` is always reported `false` here, unlike the other four.
+
+**Dev.to** — the one platform here that models content as a full article (title +
+Markdown body) rather than a short status update. The adapter derives a title from the
+message since Dev.to requires one; the body still carries the complete original message
+and CTA link verbatim. A published (non-draft) article is genuinely public and indexed.
+
+**Bluesky** — the AT Protocol has no API-key concept; it's a two-step login (app
+password → access JWT) then a record-create call. Posts have no private/public
+distinction at the protocol level, so a successfully created post is always public.
+
+## Platforms considered and not used
+
+- **WordPress.com** — a real, documented REST API exists, but reliably provisioning a
+  free blog + application password without manual dashboard clicks made it a weaker fit
+  for a fully automated, credential-driven adapter than Dev.to's API-key flow.
+- **Blogger (Google)** — requires a full Google OAuth2 consent flow (not a static API
+  key/token), which is disproportionate setup for a short practical test and was
+  dropped in favor of Dev.to's simpler, equally-real public-posting API.
+
+## Honesty note on live verification
+
+This implementation was written directly against each platform's official, documented
+API contract (endpoint, auth scheme, request/response shape) and is covered by
+automated tests using mocked HTTP responses for success and failure cases (see
+`tests/test_platforms.py`). **No live credentials for any of these five platforms were
+available in the development environment this was built in**, so no adapter has been
+exercised end-to-end against a real account. Running it with real credentials (see
+`.env.example`) is expected to work as written, but should be verified by the
+reviewer/candidate before relying on it — see the README's "Known Limitations" section.
