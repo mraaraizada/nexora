@@ -2,6 +2,8 @@
 
 <div align="center">
   <img src="evidence/dashboard.png" alt="NEXORA Swagger Dashboard" width="900"/>
+  <br/><br/>
+  <img src="evidence/response.png" alt="NEXORA real executed POST /posting response in Swagger" width="900"/>
 </div>
 
 ## About The Project
@@ -93,7 +95,7 @@ curl -X POST http://localhost:4000/posting \
 
 Each entry in `results` is independent — one platform's `"failed"` status never affects another's. `success` at the top level is `true` only if every platform succeeded.
 
-This is a **real, actual response** captured from this implementation with all five platforms genuinely configured (identifying values redacted from the URLs below only; every `status` is exactly as returned — see `evidence/live_posting_response.json` for an unedited capture):
+This is a **real, actual response** captured from this implementation with all five platforms genuinely configured (identifying values redacted from the URLs below only; every `status` is exactly as returned — an unedited capture also lives in `evidence/live_posting_response.json` and is shown in full below):
 
 ```json
 {
@@ -109,6 +111,64 @@ This is a **real, actual response** captured from this implementation with all f
 ```
 
 (Write.as's failure here is real and expected — see Known Limitations below, not a code defect; it has two independently confirmed live successes elsewhere in `docs/platform_research.md`.)
+
+<details>
+<summary>Another real, unedited live capture (also in <code>evidence/live_posting_response.json</code>) — Dev.to hit its own real rate limit in this one, left in rather than hidden</summary>
+
+```json
+{
+    "success": false,
+    "results": [
+        {
+            "platform": "Telegra.ph",
+            "status": "success",
+            "posted_url": "https://telegra.ph/NEXORA-submission-evidence-run-11-16",
+            "public_access": true,
+            "date": "2026-11-16",
+            "time": "11:06:23",
+            "error": null
+        },
+        {
+            "platform": "Mastodon",
+            "status": "success",
+            "posted_url": "https://mastodon.social/@mwj20xuns8jl/117625794351002923",
+            "public_access": true,
+            "date": "2026-11-16",
+            "time": "11:06:22",
+            "error": null
+        },
+        {
+            "platform": "Write.as",
+            "status": "failed",
+            "posted_url": null,
+            "public_access": false,
+            "date": null,
+            "time": null,
+            "error": "Blocked by Write.as abuse detection: We've detected abusive activity on your IP address."
+        },
+        {
+            "platform": "Dev.to",
+            "status": "failed",
+            "posted_url": null,
+            "public_access": false,
+            "date": null,
+            "time": null,
+            "error": "Rate limited by platform"
+        },
+        {
+            "platform": "Bluesky",
+            "status": "success",
+            "posted_url": "https://bsky.app/profile/mwj1q5pmk58g.bsky.social/post/3n2gf4gv2xs2q",
+            "public_access": true,
+            "date": "2026-11-16",
+            "time": "11:06:23",
+            "error": null
+        }
+    ]
+}
+```
+
+</details>
 
 ### API Endpoints
 
@@ -193,7 +253,61 @@ pytest -q
 - **Platform integration** (mocked HTTP, per adapter) — success, auth failure, rate limiting, timeout, network failure, malformed response, and Dev.to's real-world-discovered `public_access`-confirmation logic
 - **Orchestration** — all succeed, one fails, multiple fail, all fail, not-configured platforms never crash the request, and the real FastAPI route's validation responses (422s) and Swagger/OpenAPI availability
 
-All external HTTP calls in this default suite are mocked with `respx` — no real network calls are made while running `pytest`. See `evidence/pytest_run.txt` for an unedited capture of a real run.
+All external HTTP calls in this default suite are mocked with `respx` — no real network calls are made while running `pytest`.
+
+<details>
+<summary>Real, unedited <code>pytest -v</code> output (also in <code>evidence/pytest_run.txt</code>)</summary>
+
+```text
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-8.3.4, pluggy-1.7.0
+collecting ... collected 42 items / 2 deselected / 40 selected
+
+tests/test_platforms.py::test_telegraph_success_with_configured_token PASSED [  2%]
+tests/test_platforms.py::test_telegraph_creates_account_when_no_token_configured PASSED [  5%]
+tests/test_platforms.py::test_telegraph_create_page_error_is_a_failure PASSED [  7%]
+tests/test_platforms.py::test_telegraph_is_always_configured PASSED      [ 10%]
+tests/test_platforms.py::test_mastodon_success PASSED                    [ 12%]
+tests/test_platforms.py::test_mastodon_rate_limited PASSED               [ 15%]
+tests/test_platforms.py::test_writeas_success_anonymous PASSED           [ 17%]
+tests/test_platforms.py::test_writeas_falls_back_to_id_slug_when_full_post_url_missing PASSED [ 20%]
+tests/test_platforms.py::test_writeas_content_blocked_is_a_real_failure PASSED [ 22%]
+tests/test_platforms.py::test_writeas_abuse_detection_is_not_mislabeled_as_auth_failure PASSED [ 25%]
+tests/test_platforms.py::test_writeas_is_always_configured PASSED        [ 27%]
+tests/test_platforms.py::test_writeas_malformed_response PASSED          [ 30%]
+tests/test_platforms.py::test_devto_success_confirms_via_public_read_endpoint PASSED [ 32%]
+tests/test_platforms.py::test_devto_success_but_not_actually_public PASSED [ 35%]
+tests/test_platforms.py::test_devto_timeout PASSED                       [ 37%]
+tests/test_platforms.py::test_bluesky_success PASSED                     [ 40%]
+tests/test_platforms.py::test_bluesky_login_failure PASSED               [ 42%]
+tests/test_platforms.py::test_network_failure_is_isolated PASSED         [ 45%]
+tests/test_posting.py::test_all_platforms_succeed PASSED                 [ 47%]
+tests/test_posting.py::test_one_platform_fails_rest_still_attempted PASSED [ 50%]
+tests/test_posting.py::test_multiple_platforms_fail_partial_success PASSED [ 52%]
+tests/test_posting.py::test_all_platforms_fail PASSED                    [ 55%]
+tests/test_posting.py::test_not_configured_platforms_report_failed_not_crash PASSED [ 57%]
+tests/test_posting.py::test_route_rejects_empty_message PASSED           [ 60%]
+tests/test_posting.py::test_route_rejects_message_over_200_chars PASSED  [ 62%]
+tests/test_posting.py::test_route_rejects_missing_cta PASSED             [ 65%]
+tests/test_posting.py::test_route_rejects_multiple_ctas PASSED           [ 67%]
+tests/test_posting.py::test_docs_endpoint_is_available PASSED            [ 70%]
+tests/test_posting.py::test_openapi_schema_is_available PASSED           [ 72%]
+tests/test_validation.py::test_valid_message_passes PASSED               [ 75%]
+tests/test_validation.py::test_empty_message_rejected PASSED             [ 77%]
+tests/test_validation.py::test_whitespace_only_message_rejected PASSED   [ 80%]
+tests/test_validation.py::test_message_over_200_chars_rejected PASSED    [ 82%]
+tests/test_validation.py::test_message_at_exactly_200_chars_is_allowed PASSED [ 85%]
+tests/test_validation.py::test_missing_cta_rejected PASSED               [ 87%]
+tests/test_validation.py::test_multiple_cta_urls_rejected PASSED         [ 90%]
+tests/test_validation.py::test_invalid_url_scheme_rejected PASSED        [ 92%]
+tests/test_validation.py::test_url_without_scheme_is_not_recognised_as_cta PASSED [ 95%]
+tests/test_validation.py::test_validation_service_returns_the_cta_url_directly PASSED [ 97%]
+tests/test_validation.py::test_validation_service_raises_value_error_with_reason PASSED [100%]
+
+================= 40 passed, 2 deselected, 1 warning in 6.17s =================
+```
+
+</details>
 
 ### Live End-to-End Tests (opt-in, real network)
 
