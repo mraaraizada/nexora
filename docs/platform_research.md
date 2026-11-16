@@ -6,7 +6,7 @@ timeframe of this test (no paid developer account, no lengthy OAuth app review).
 
 | Platform | Endpoint used | Auth | Docs |
 |---|---|---|---|
-| Telegram | `POST https://api.telegram.org/bot<token>/sendMessage` | Bot token in URL | https://core.telegram.org/bots/api#sendmessage |
+| Telegra.ph | `POST https://api.telegra.ph/createAccount` then `POST .../createPage` | None required (fresh account created per publish) | https://telegra.ph/api |
 | Mastodon | `POST /api/v1/statuses` on the configured instance | OAuth2 bearer access token | https://docs.joinmastodon.org/methods/statuses/#create |
 | Write.as | `POST https://write.as/api/posts` | None required (anonymous posting) | https://developers.write.as/docs/api/#publish-a-post |
 | Dev.to | `POST https://dev.to/api/articles` | `api-key` header | https://developers.forem.com/api/v1#tag/articles/operation/createArticle |
@@ -14,10 +14,13 @@ timeframe of this test (no paid developer account, no lengthy OAuth app review).
 
 ## Per-platform notes
 
-**Telegram** — simplest integration: one authenticated POST, JSON in, JSON out. A
-public permalink (`https://t.me/<username>/<id>`) only exists if the bot is posting to
-a channel with a public `@username`; a private group has no equivalent public URL, so
-the adapter reports `public_access: false` in that case rather than guessing one.
+**Telegra.ph** — chosen specifically for being "fully web" with zero manual setup: not
+just no paid tier, but no account-creation step at all. `createAccount` issues a fresh
+access token with just a short name, no email/signup/verification, and a new one is
+created automatically on every publish unless `TELEGRAPH_ACCESS_TOKEN` is set to reuse
+an identity. This is distinct from the Telegram Bot API (which it replaced in this
+project — the Bot API needs a human to message `@BotFather` and add the bot as a
+channel admin, a real manual step this swap avoids entirely).
 
 **Mastodon** — `POST /api/v1/statuses` with `visibility: "public"` makes the post
 genuinely public (listed on public/federated timelines, viewable with no auth), which
@@ -76,8 +79,17 @@ genuinely informative:
    "Authentication failed" bucket, which would be a misleading label for a platform
    that has no credentials to begin with.
 
-**No live credentials for Telegram, Mastodon, Dev.to, or Bluesky were available in the
-development environment this was built in**, so those four adapters have not been
-exercised end-to-end against a real account. Running them with real credentials (see
-`.env.example`) is expected to work as written, but should be verified by the
-reviewer/candidate before relying on them — see the README's "Known Limitations" section.
+**Telegra.ph was NOT live-verified**, despite needing no credentials, for a different
+reason than the other three: this development environment's action policy treats
+automated account creation on an external service (`createAccount`) as an action
+requiring human confirmation first, so the live call was never attempted here rather
+than being blocked by the platform itself. The adapter is implemented directly against
+the documented API and covered by mocked tests, but a candidate/reviewer running this
+locally should do one real test post to confirm it end-to-end.
+
+**No live credentials for Mastodon, Dev.to, or Bluesky were available in the
+development environment this was built in**, so those three adapters have not been
+exercised end-to-end against a real account either. Running them with real credentials
+(see `.env.example` / `SETUP_CHECKLIST.md`) is expected to work as written, but should
+be verified by the reviewer/candidate before relying on them — see the README's
+"Known Limitations" section.

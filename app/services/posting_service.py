@@ -15,7 +15,7 @@ from app.platforms.base import PlatformAdapter
 from app.platforms.bluesky import BlueskyAdapter
 from app.platforms.devto import DevToAdapter
 from app.platforms.mastodon import MastodonAdapter
-from app.platforms.telegram import TelegramAdapter
+from app.platforms.telegraph import TelegraphAdapter
 from app.platforms.writeas import WriteAsAdapter
 from app.schemas import PlatformResult
 from app.services.result_service import aggregate
@@ -23,7 +23,7 @@ from app.services.validation_service import validate_message
 
 #: The platform registry — the single place platform selection is decided.
 PLATFORM_ADAPTERS: list[PlatformAdapter] = [
-    TelegramAdapter(),
+    TelegraphAdapter(),
     MastodonAdapter(),
     WriteAsAdapter(),
     DevToAdapter(),

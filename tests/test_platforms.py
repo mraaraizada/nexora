@@ -11,7 +11,7 @@ from app.config import settings
 from app.platforms.bluesky import BlueskyAdapter
 from app.platforms.devto import DevToAdapter
 from app.platforms.mastodon import MastodonAdapter
-from app.platforms.telegram import TelegramAdapter
+from app.platforms.telegraph import TelegraphAdapter
 from app.platforms.writeas import WriteAsAdapter
 
 MESSAGE = "Check out our latest platform https://example.com"
@@ -27,9 +27,7 @@ def client():
 def configured(monkeypatch):
     """Configures every adapter's required env vars so is_configured() is true for
     these tests; individual tests override specific values as needed."""
-    monkeypatch.setattr(settings, "telegram_bot_token", "test-bot-token")
-    monkeypatch.setattr(settings, "telegram_chat_id", "12345")
-    monkeypatch.setattr(settings, "telegram_channel_username", "testchannel")
+    monkeypatch.setattr(settings, "telegraph_access_token", "test-telegraph-token")
     monkeypatch.setattr(settings, "mastodon_instance_url", "https://mastodon.example")
     monkeypatch.setattr(settings, "mastodon_access_token", "test-token")
     monkeypatch.setattr(settings, "devto_api_key", "test-api-key")
@@ -38,32 +36,46 @@ def configured(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Telegram
+# Telegra.ph
 # ---------------------------------------------------------------------------
 
 
 @respx.mock
-async def test_telegram_success(client):
-    respx.post("https://api.telegram.org/bottest-bot-token/sendMessage").mock(
-        return_value=httpx.Response(200, json={"ok": True, "result": {"message_id": 42}})
+async def test_telegraph_success_with_configured_token(client):
+    # telegraph_access_token is set, so createAccount should NOT be called.
+    respx.post("https://api.telegra.ph/createPage").mock(
+        return_value=httpx.Response(200, json={"ok": True, "result": {"path": "Test-11-16", "url": "https://telegra.ph/Test-11-16"}})
     )
-    result = await TelegramAdapter().publish(client, MESSAGE, CTA)
+    result = await TelegraphAdapter().publish(client, MESSAGE, CTA)
     assert result.status == "success"
-    assert result.posted_url == "https://t.me/testchannel/42"
+    assert result.posted_url == "https://telegra.ph/Test-11-16"
     assert result.public_access is True
 
 
 @respx.mock
-async def test_telegram_auth_failure(client):
-    respx.post("https://api.telegram.org/bottest-bot-token/sendMessage").mock(return_value=httpx.Response(401, json={"ok": False}))
-    result = await TelegramAdapter().publish(client, MESSAGE, CTA)
+async def test_telegraph_creates_account_when_no_token_configured(client, monkeypatch):
+    monkeypatch.setattr(settings, "telegraph_access_token", None)
+    respx.post("https://api.telegra.ph/createAccount").mock(
+        return_value=httpx.Response(200, json={"ok": True, "result": {"access_token": "generated-token"}})
+    )
+    respx.post("https://api.telegra.ph/createPage").mock(
+        return_value=httpx.Response(200, json={"ok": True, "result": {"path": "Test-11-16", "url": "https://telegra.ph/Test-11-16"}})
+    )
+    result = await TelegraphAdapter().publish(client, MESSAGE, CTA)
+    assert result.status == "success"
+
+
+@respx.mock
+async def test_telegraph_create_page_error_is_a_failure(client):
+    respx.post("https://api.telegra.ph/createPage").mock(return_value=httpx.Response(200, json={"ok": False, "error": "CONTENT_TEXT_REQUIRED"}))
+    result = await TelegraphAdapter().publish(client, MESSAGE, CTA)
     assert result.status == "failed"
-    assert result.error == "Authentication failed"
+    assert result.error == "CONTENT_TEXT_REQUIRED"
 
 
-def test_telegram_not_configured(monkeypatch):
-    monkeypatch.setattr(settings, "telegram_bot_token", None)
-    assert TelegramAdapter().is_configured() is False
+def test_telegraph_is_always_configured():
+    # Account creation needs no pre-existing credentials at all.
+    assert TelegraphAdapter().is_configured() is True
 
 
 # ---------------------------------------------------------------------------
@@ -212,7 +224,7 @@ async def test_bluesky_login_failure(client):
 
 @respx.mock
 async def test_network_failure_is_isolated(client):
-    respx.post("https://api.telegram.org/bottest-bot-token/sendMessage").mock(side_effect=httpx.ConnectError("no route to host"))
-    result = await TelegramAdapter().publish(client, MESSAGE, CTA)
+    respx.post("https://api.telegra.ph/createPage").mock(side_effect=httpx.ConnectError("no route to host"))
+    result = await TelegraphAdapter().publish(client, MESSAGE, CTA)
     assert result.status == "failed"
     assert "Network error" in result.error

@@ -13,9 +13,9 @@ load_dotenv()
 
 @dataclass
 class Settings:
-    telegram_bot_token: str | None = os.getenv("TELEGRAM_BOT_TOKEN") or None
-    telegram_chat_id: str | None = os.getenv("TELEGRAM_CHAT_ID") or None
-    telegram_channel_username: str | None = os.getenv("TELEGRAM_CHANNEL_USERNAME") or None
+    # Optional — a persistent Telegra.ph author identity; a fresh one is created
+    # automatically on every publish if this is left unset.
+    telegraph_access_token: str | None = os.getenv("TELEGRAPH_ACCESS_TOKEN") or None
 
     mastodon_instance_url: str = (os.getenv("MASTODON_INSTANCE_URL") or "https://mastodon.social").rstrip("/")
     mastodon_access_token: str | None = os.getenv("MASTODON_ACCESS_TOKEN") or None

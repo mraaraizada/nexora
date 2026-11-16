@@ -16,7 +16,7 @@ timed Python practical test (FastAPI backend engineering).
 ## Key Features
 
 - `POST /posting` — validated input (message length, exactly-one-CTA-URL), internal platform fan-out.
-- Five real platform integrations: Telegram, Mastodon, Write.as, Dev.to, Bluesky (see `docs/platform_research.md`).
+- Five real platform integrations: Telegra.ph, Mastodon, Write.as, Dev.to, Bluesky (see `docs/platform_research.md`).
 - Fully concurrent, isolated publishing via `asyncio.gather` — one platform's exception or failure never affects the others.
 - Honest, specific failure reporting: missing credentials, auth failure, rate limiting, timeout, and network errors are each reported distinctly, never silently skipped or faked as success.
 - Interactive Swagger docs at `/docs`.
@@ -34,7 +34,7 @@ Modular, adapter-based:
 - **`app/utils/url_validator.py`** — pure, dependency-free CTA URL extraction/validation logic, reused by both the schema and the standalone validation service.
 - **`app/services/validation_service.py`** — the same validation, callable without FastAPI/pydantic (for direct testing/reuse).
 - **`app/platforms/base.py`** — the `PlatformAdapter` abstract interface + a shared `publish()` template method that standardizes success/failure handling, timestamps, and error classification (auth/rate-limit/timeout/network) across every adapter.
-- **`app/platforms/{telegram,mastodon,writeas,devto,bluesky}.py`** — one adapter per platform; each owns its own request construction, auth, and response parsing. No platform-specific logic lives in the route or orchestrator.
+- **`app/platforms/{telegraph,mastodon,writeas,devto,bluesky}.py`** — one adapter per platform; each owns its own request construction, auth, and response parsing. No platform-specific logic lives in the route or orchestrator.
 - **`app/services/posting_service.py`** — the platform registry (the one place "which platforms" is decided) and the concurrent orchestration (`asyncio.gather`, with per-adapter exception isolation as a last-resort safety net on top of each adapter's own error handling).
 - **`app/services/result_service.py`** — aggregates individual `PlatformResult`s into the final response, computing `success` (true only if every platform succeeded).
 - **`app/api/routes.py`** / **`app/main.py`** — the thin FastAPI route and app setup; a custom validation-error handler flattens pydantic's error shape into a readable `{field, message}` list.
@@ -51,7 +51,7 @@ nexora/
 │   │   └── routes.py            # POST /posting
 │   ├── platforms/
 │   │   ├── base.py              # Adapter interface + shared publish() template
-│   │   ├── telegram.py
+│   │   ├── telegraph.py
 │   │   ├── mastodon.py
 │   │   ├── writeas.py
 │   │   ├── devto.py
@@ -101,8 +101,8 @@ cp .env.example .env
 Every variable is optional — a platform with missing credentials reports a clean
 `"failed"` result with a specific `"Not configured: ..."` error instead of crashing the
 application or the request. See `.env.example` for the full list and where to obtain
-each value (Telegram bot token via @BotFather, Mastodon app token via your instance's
-Settings → Development, Write.as needs nothing, a Dev.to API key, a Bluesky app password).
+each value (Telegra.ph needs nothing, Mastodon app token via your instance's
+Settings → Development, Write.as also needs nothing, a Dev.to API key, a Bluesky app password).
 
 **Never commit a filled-in `.env`** — it's already gitignored.
 
@@ -110,7 +110,7 @@ Settings → Development, Write.as needs nothing, a Dev.to API key, a Bluesky ap
 
 | Platform | What you need |
 |---|---|
-| Telegram | A bot via `@BotFather`, added as an admin to the target channel/chat |
+| Telegra.ph | Nothing — a fresh author identity is created automatically on every publish |
 | Mastodon | An application access token from any instance (e.g. mastodon.social) |
 | Write.as | Nothing — anonymous posting works with zero setup (optional access token to attribute posts to an account) |
 | Dev.to | An API key from your Dev.to account settings |
@@ -136,14 +136,15 @@ curl -X POST http://localhost:4000/posting \
 
 ## API Response Example
 
-This is the **real, actual response** captured from this implementation (no platforms
-configured in this environment, except Write.as which needs none — see Known Limitations):
+This is a **real, actual response** captured from this implementation (before the
+registry included Telegra.ph — Mastodon/Dev.to/Bluesky's not-configured errors below
+are genuine; Write.as's success is genuine; see Known Limitations for exactly what's
+live-verified today):
 
 ```json
 {
   "success": false,
   "results": [
-    {"platform": "Telegram", "status": "failed", "posted_url": null, "public_access": false, "date": null, "time": null, "error": "Not configured: TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required"},
     {"platform": "Mastodon", "status": "failed", "posted_url": null, "public_access": false, "date": null, "time": null, "error": "Not configured: MASTODON_ACCESS_TOKEN (and MASTODON_INSTANCE_URL) are required"},
     {"platform": "Write.as", "status": "success", "posted_url": "https://write.as/<id>", "public_access": true, "date": "2026-11-16", "time": "...", "error": null},
     {"platform": "Dev.to", "status": "failed", "posted_url": null, "public_access": false, "date": null, "time": null, "error": "Not configured: DEVTO_API_KEY is required"},
@@ -189,8 +190,7 @@ calls are made while testing.
 
 ## Known Limitations
 
-- **No live credential verification for 4 of 5 platforms.** This was built in an environment with no real accounts/API keys for Telegram, Mastodon, Dev.to, or Bluesky. Every adapter is implemented against each platform's real, documented API contract and is covered by tests using mocked HTTP responses, but only Write.as (which needs no credentials) has been exercised end-to-end against a live account. See `docs/platform_research.md` for the full honesty note on this.
-- **Telegram's permalink requires a public channel username.** Posting to a private group/chat still succeeds, but there's no equivalent public URL to report — the adapter returns a non-public `telegram://` reference instead of guessing a URL.
+- **Only Write.as has been live-verified end-to-end.** This was built in an environment with no real accounts/API keys for Mastodon, Dev.to, or Bluesky, and Telegra.ph's account-creation call specifically couldn't be made from this environment's action policy (it treats automated account creation on an external service as an action to confirm with a human first). Every adapter — Telegra.ph included — is implemented directly against its platform's real, documented API contract and is covered by tests using mocked HTTP responses, but only Write.as has actually been posted to and confirmed live. See `docs/platform_research.md` for the full honesty note.
 - **No retry/backoff on rate limiting.** A 429 is reported as a clean failure rather than automatically retried, by design (per the "avoid uncontrolled retries" requirement) — a caller can choose to retry the whole request later.
 - **No persistence layer.** Each request is stateless; there's no database of past posts, no deduplication across requests, and no history endpoint — out of scope for this practical test.
 

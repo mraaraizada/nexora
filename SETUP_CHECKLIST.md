@@ -1,32 +1,26 @@
 # What you actually need to provide
 
-Write.as already works with zero setup (confirmed live). For the other four platforms,
-here's exactly what to get, how to get it, and where it goes in `.env`.
+Write.as already works with zero setup (confirmed live). Telegra.ph also needs zero
+setup — it creates a fresh author account automatically on every publish — but
+couldn't be live-tested in this development environment (see `docs/platform_research.md`),
+so it's worth confirming yourself even though there's nothing to configure. For the
+other three platforms, here's exactly what to get, how to get it, and where it goes in `.env`.
 
 ---
 
-## 1. Telegram (fastest — ~3 minutes)
+## 0. Telegra.ph (zero setup, but unverified — worth a quick check)
 
-**What you need:** a bot token, a chat ID, and (optionally) a public channel username.
+**What you need:** nothing. Leave `TELEGRAPH_ACCESS_TOKEN` blank in `.env` and it will
+create a fresh account automatically on every publish call.
 
-**How to get it:**
-1. Open Telegram, message **@BotFather**.
-2. Send `/newbot`, follow the prompts (give it any name/username). It replies with a token like `123456789:ABCdefGhIJKlmNoPQRstuVwxyZ`.
-3. Create a channel (or use an existing one) and add your new bot as an **admin** (Channel settings → Administrators → Add Admin).
-4. Post any message in the channel, then open this URL in a browser:
-   `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates`
-   Look for `"chat":{"id": -1001234567890, ...}` in the response — that number is your chat ID.
-
-**Put in `.env`:**
-```
-TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRstuVwxyZ
-TELEGRAM_CHAT_ID=-1001234567890
-TELEGRAM_CHANNEL_USERNAME=yourchannelname   # only if the channel has a public @username, no leading @
-```
+**To confirm it actually works:** just send a real request (see "After filling in
+`.env`" below) and check the `"Telegra.ph"` entry in the response — it should show
+`"status": "success"` with a real `https://telegra.ph/...` URL. Open that URL to confirm
+the post is actually there.
 
 ---
 
-## 2. Mastodon (~3 minutes)
+## 1. Mastodon (~3 minutes)
 
 **What you need:** an access token from any Mastodon instance.
 
@@ -44,7 +38,7 @@ MASTODON_ACCESS_TOKEN=<the access token you copied>
 
 ---
 
-## 3. Dev.to (~2 minutes)
+## 2. Dev.to (~2 minutes)
 
 **What you need:** an API key.
 
@@ -60,7 +54,7 @@ DEVTO_API_KEY=<the key you copied>
 
 ---
 
-## 4. Bluesky (~3 minutes)
+## 3. Bluesky (~3 minutes)
 
 **What you need:** your handle + an **app password** (not your real login password).
 
@@ -94,5 +88,6 @@ BLUESKY_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
 3. Check each configured platform's result shows `"status": "success"` with a real `posted_url` — open that URL yourself to confirm it's actually live.
 4. Once verified, update `docs/platform_research.md`'s "Honesty note on live verification" section to say which platform(s) you personally confirmed, with the real posted URL as evidence — this is the single change that most strengthens the submission.
 
-You don't need all four — even one more live-verified platform beyond Write.as
-meaningfully improves the submission. Telegram is the fastest if you only have time for one.
+You don't need all three — even one more live-verified platform beyond Write.as
+(and confirming Telegra.ph works) meaningfully improves the submission. Dev.to is the
+fastest if you only have time for one of the credentialed three.

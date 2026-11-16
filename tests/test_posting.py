@@ -16,9 +16,7 @@ MESSAGE = "Check out our latest platform https://example.com"
 
 @pytest.fixture(autouse=True)
 def configured_all(monkeypatch):
-    monkeypatch.setattr(settings, "telegram_bot_token", "tok")
-    monkeypatch.setattr(settings, "telegram_chat_id", "1")
-    monkeypatch.setattr(settings, "telegram_channel_username", "chan")
+    monkeypatch.setattr(settings, "telegraph_access_token", "tok")
     monkeypatch.setattr(settings, "mastodon_instance_url", "https://mastodon.example")
     monkeypatch.setattr(settings, "mastodon_access_token", "tok")
     monkeypatch.setattr(settings, "devto_api_key", "tok")
@@ -27,7 +25,7 @@ def configured_all(monkeypatch):
 
 
 def _mock_all_success():
-    respx.post("https://api.telegram.org/bottok/sendMessage").mock(return_value=httpx.Response(200, json={"ok": True, "result": {"message_id": 1}}))
+    respx.post("https://api.telegra.ph/createPage").mock(return_value=httpx.Response(200, json={"ok": True, "result": {"path": "p", "url": "https://telegra.ph/p"}}))
     respx.post("https://mastodon.example/api/v1/statuses").mock(return_value=httpx.Response(200, json={"url": "https://mastodon.example/@u/1", "visibility": "public"}))
     respx.post("https://write.as/api/posts").mock(return_value=httpx.Response(200, json={"data": {"id": "1", "slug": None}}))
     respx.post("https://dev.to/api/articles").mock(return_value=httpx.Response(201, json={"url": "https://dev.to/u/p", "published": True}))
@@ -47,13 +45,13 @@ async def test_all_platforms_succeed():
 @respx.mock
 async def test_one_platform_fails_rest_still_attempted():
     _mock_all_success()
-    # Override Telegram's mock to fail; the other four mocks above remain successful.
-    respx.post("https://api.telegram.org/bottok/sendMessage").mock(return_value=httpx.Response(401, json={"ok": False}))
+    # Override Telegra.ph's mock to fail; the other four mocks above remain successful.
+    respx.post("https://api.telegra.ph/createPage").mock(return_value=httpx.Response(200, json={"ok": False, "error": "FLOOD_WAIT"}))
 
     response = await publish_everywhere(MESSAGE)
     assert response.success is False
     by_platform = {r.platform: r for r in response.results}
-    assert by_platform["Telegram"].status == "failed"
+    assert by_platform["Telegra.ph"].status == "failed"
     assert by_platform["Mastodon"].status == "success"
     assert by_platform["Write.as"].status == "success"
     assert by_platform["Dev.to"].status == "success"
@@ -63,13 +61,13 @@ async def test_one_platform_fails_rest_still_attempted():
 @respx.mock
 async def test_multiple_platforms_fail_partial_success():
     _mock_all_success()
-    respx.post("https://api.telegram.org/bottok/sendMessage").mock(return_value=httpx.Response(500))
+    respx.post("https://api.telegra.ph/createPage").mock(return_value=httpx.Response(500))
     respx.post("https://mastodon.example/api/v1/statuses").mock(side_effect=httpx.TimeoutException("timeout"))
 
     response = await publish_everywhere(MESSAGE)
     assert response.success is False
     statuses = {r.platform: r.status for r in response.results}
-    assert statuses["Telegram"] == "failed"
+    assert statuses["Telegra.ph"] == "failed"
     assert statuses["Mastodon"] == "failed"
     assert statuses["Write.as"] == "success"
     assert statuses["Dev.to"] == "success"
@@ -78,7 +76,7 @@ async def test_multiple_platforms_fail_partial_success():
 
 @respx.mock
 async def test_all_platforms_fail():
-    respx.post("https://api.telegram.org/bottok/sendMessage").mock(return_value=httpx.Response(500))
+    respx.post("https://api.telegra.ph/createPage").mock(return_value=httpx.Response(500))
     respx.post("https://mastodon.example/api/v1/statuses").mock(return_value=httpx.Response(500))
     respx.post("https://write.as/api/posts").mock(return_value=httpx.Response(500))
     respx.post("https://dev.to/api/articles").mock(return_value=httpx.Response(500))
@@ -90,15 +88,19 @@ async def test_all_platforms_fail():
     assert len(response.results) == 5
 
 
+@respx.mock
 def test_not_configured_platforms_report_failed_not_crash(monkeypatch):
-    # No autouse config overrides active for this one (fresh monkeypatch layer) —
-    # simulate an unconfigured platform and confirm the API never 500s because of it.
-    monkeypatch.setattr(settings, "telegram_bot_token", None)
-    monkeypatch.setattr(settings, "telegram_chat_id", None)
+    # Simulate an unconfigured platform (Mastodon, which does require a token unlike
+    # Telegra.ph/Write.as) and confirm the API never 500s because of it. Every other
+    # platform is still mocked below so this test makes no real network calls at all.
+    monkeypatch.setattr(settings, "mastodon_access_token", None)
+    _mock_all_success()
 
     with TestClient(app) as test_client:
         resp = test_client.post("/posting", json={"message": MESSAGE})
     assert resp.status_code == 200
+    assert resp.json()["results"][1]["platform"] == "Mastodon"
+    assert resp.json()["results"][1]["status"] == "failed"
 
 
 # ---------------------------------------------------------------------------
