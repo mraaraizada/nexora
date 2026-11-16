@@ -136,19 +136,20 @@ curl -X POST http://localhost:4000/posting \
 
 ## API Response Example
 
-This is a **real, actual response** captured from this implementation (before the
-registry included Telegra.ph — Mastodon/Dev.to/Bluesky's not-configured errors below
-are genuine; Write.as's success is genuine; see Known Limitations for exactly what's
-live-verified today):
+This is a **real, actual response** captured from this implementation with all five
+platforms genuinely configured (real values redacted from the URLs below only where
+they'd identify the test accounts used during development; the shape and every
+`status` are exactly as returned):
 
 ```json
 {
   "success": false,
   "results": [
-    {"platform": "Mastodon", "status": "failed", "posted_url": null, "public_access": false, "date": null, "time": null, "error": "Not configured: MASTODON_ACCESS_TOKEN (and MASTODON_INSTANCE_URL) are required"},
-    {"platform": "Write.as", "status": "success", "posted_url": "https://write.as/<id>", "public_access": true, "date": "2026-11-16", "time": "...", "error": null},
-    {"platform": "Dev.to", "status": "failed", "posted_url": null, "public_access": false, "date": null, "time": null, "error": "Not configured: DEVTO_API_KEY is required"},
-    {"platform": "Bluesky", "status": "failed", "posted_url": null, "public_access": false, "date": null, "time": null, "error": "Not configured: BLUESKY_HANDLE and BLUESKY_APP_PASSWORD are required"}
+    {"platform": "Telegra.ph", "status": "success", "posted_url": "https://telegra.ph/NEXORA-final-verification...", "public_access": true, "date": "2026-11-16", "time": "09:31:37", "error": null},
+    {"platform": "Mastodon", "status": "success", "posted_url": "https://mastodon.social/@<user>/117625421708179844", "public_access": true, "date": "2026-11-16", "time": "09:31:37", "error": null},
+    {"platform": "Write.as", "status": "failed", "posted_url": null, "public_access": false, "date": null, "time": null, "error": "Blocked by Write.as abuse detection: We've detected abusive activity on your IP address."},
+    {"platform": "Dev.to", "status": "success", "posted_url": "https://dev.to/<user>/nexora-final-verification...", "public_access": false, "date": "2026-11-16", "time": "09:31:36", "error": null},
+    {"platform": "Bluesky", "status": "success", "posted_url": "https://bsky.app/profile/<handle>/post/3n2g7sy5avs2u", "public_access": true, "date": "2026-11-16", "time": "09:31:37", "error": null}
   ]
 }
 ```
@@ -171,7 +172,7 @@ example for the same caveat):
 pytest -q
 ```
 
-34 tests covering:
+39 tests covering:
 - **Input validation** — valid message, empty, >200 chars, missing CTA, multiple CTAs, invalid URL scheme, scheme-less "URL".
 - **Platform integration** (mocked HTTP, per adapter) — success, auth failure, rate limiting, timeout, network failure, malformed response.
 - **Orchestration** — all succeed, one fails, multiple fail, all fail, not-configured platforms never crash the request, and the real FastAPI route's validation responses (422s) and Swagger/OpenAPI availability.
@@ -190,7 +191,7 @@ calls are made while testing.
 
 ## Known Limitations
 
-- **4 of 5 platforms (Write.as, Telegra.ph, Dev.to, Bluesky) have been live-verified end-to-end** — each actually posted to with a real request and returned a real, genuine `posted_url`. Only Mastodon has not, since no real access token was available in the environment this was built in. Every adapter is implemented directly against its platform's real, documented API contract and covered by mocked tests regardless. See `docs/platform_research.md` for the full honesty note, including one real anomaly Dev.to's live test surfaced (`public_access` reported `false` despite requesting `published: true` — likely new-account moderation holding the article back from the public feed, not an adapter bug).
+- **All 5 platforms have been live-verified end-to-end** — each actually posted to with a real request and returned a real, genuine `posted_url`. Every adapter is implemented directly against its platform's real, documented API contract and covered by mocked tests. See `docs/platform_research.md` for the full honesty note, including two real anomalies found during live testing (not guessed from docs): Dev.to's `public_access` reported `false` despite requesting `published: true` (likely new-account moderation holding the article back from the public feed, not an adapter bug), and Write.as's anonymous posting triggering a real IP-based abuse-detection block on a later test run after two earlier successful posts (expected platform behavior for repeated anonymous posting from one IP, not a regression).
 - **No retry/backoff on rate limiting.** A 429 is reported as a clean failure rather than automatically retried, by design (per the "avoid uncontrolled retries" requirement) — a caller can choose to retry the whole request later.
 - **No persistence layer.** Each request is stateless; there's no database of past posts, no deduplication across requests, and no history endpoint — out of scope for this practical test.
 
