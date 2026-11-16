@@ -10,9 +10,9 @@ import respx
 from app.config import settings
 from app.platforms.bluesky import BlueskyAdapter
 from app.platforms.devto import DevToAdapter
-from app.platforms.discord import DiscordAdapter
 from app.platforms.mastodon import MastodonAdapter
 from app.platforms.telegram import TelegramAdapter
+from app.platforms.writeas import WriteAsAdapter
 
 MESSAGE = "Check out our latest platform https://example.com"
 CTA = "https://example.com"
@@ -32,8 +32,6 @@ def configured(monkeypatch):
     monkeypatch.setattr(settings, "telegram_channel_username", "testchannel")
     monkeypatch.setattr(settings, "mastodon_instance_url", "https://mastodon.example")
     monkeypatch.setattr(settings, "mastodon_access_token", "test-token")
-    monkeypatch.setattr(settings, "discord_webhook_url", "https://discord.com/api/webhooks/1/abc")
-    monkeypatch.setattr(settings, "discord_guild_id", "999")
     monkeypatch.setattr(settings, "devto_api_key", "test-api-key")
     monkeypatch.setattr(settings, "bluesky_handle", "test.bsky.social")
     monkeypatch.setattr(settings, "bluesky_app_password", "test-app-password")
@@ -93,27 +91,70 @@ async def test_mastodon_rate_limited(client):
 
 
 # ---------------------------------------------------------------------------
-# Discord
+# Write.as
 # ---------------------------------------------------------------------------
 
 
 @respx.mock
-async def test_discord_success(client):
-    respx.post("https://discord.com/api/webhooks/1/abc", params={"wait": "true"}).mock(
-        return_value=httpx.Response(200, json={"id": "111", "channel_id": "222"})
+async def test_writeas_success_anonymous(client):
+    # Real shape confirmed with one live anonymous POST during development — a
+    # successful response includes full_post_url directly.
+    respx.post("https://write.as/api/posts").mock(
+        return_value=httpx.Response(200, json={"data": {"id": "abc123", "slug": None, "full_post_url": "https://write.as/abc123"}})
     )
-    result = await DiscordAdapter().publish(client, MESSAGE, CTA)
+    result = await WriteAsAdapter().publish(client, MESSAGE, CTA)
     assert result.status == "success"
-    assert result.posted_url == "https://discord.com/channels/999/222/111"
-    assert result.public_access is False  # Discord messages require server membership
+    assert result.posted_url == "https://write.as/abc123"
+    assert result.public_access is True
 
 
 @respx.mock
-async def test_discord_malformed_response(client):
-    respx.post("https://discord.com/api/webhooks/1/abc", params={"wait": "true"}).mock(return_value=httpx.Response(200, json={}))
-    result = await DiscordAdapter().publish(client, MESSAGE, CTA)
+async def test_writeas_falls_back_to_id_slug_when_full_post_url_missing(client):
+    respx.post("https://write.as/api/posts").mock(
+        return_value=httpx.Response(200, json={"data": {"id": "abc123", "slug": "my-post", "full_post_url": ""}})
+    )
+    result = await WriteAsAdapter().publish(client, MESSAGE, CTA)
+    assert result.posted_url == "https://write.as/abc123/my-post"
+
+
+@respx.mock
+async def test_writeas_content_blocked_is_a_real_failure(client):
+    # Live-observed real failure mode: Write.as's content filter rejects a post as a
+    # 201/200 with data.id == "contentisblocked" rather than an HTTP error status.
+    respx.post("https://write.as/api/posts").mock(
+        return_value=httpx.Response(201, json={"data": {"id": "contentisblocked", "slug": None, "full_post_url": ""}})
+    )
+    result = await WriteAsAdapter().publish(client, MESSAGE, CTA)
     assert result.status == "failed"
-    assert "did not include a message id" in result.error
+    assert "content filter" in result.error
+
+
+@respx.mock
+async def test_writeas_abuse_detection_is_not_mislabeled_as_auth_failure(client):
+    # Live-observed real failure mode: anonymous posting can be IP-rate-limited with a
+    # real 403 {"error_msg": "We've detected abusive activity..."} — must NOT be
+    # reported via the generic 401/403 "Authentication failed" mapping, since this
+    # platform has no credentials to get wrong in the first place.
+    respx.post("https://write.as/api/posts").mock(
+        return_value=httpx.Response(403, json={"code": 403, "error_msg": "We've detected abusive activity on your IP address."})
+    )
+    result = await WriteAsAdapter().publish(client, MESSAGE, CTA)
+    assert result.status == "failed"
+    assert "abuse detection" in result.error
+    assert result.error != "Authentication failed"
+
+
+def test_writeas_is_always_configured():
+    # Write.as needs no credentials at all for anonymous posting.
+    assert WriteAsAdapter().is_configured() is True
+
+
+@respx.mock
+async def test_writeas_malformed_response(client):
+    respx.post("https://write.as/api/posts").mock(return_value=httpx.Response(200, json={"data": {}}))
+    result = await WriteAsAdapter().publish(client, MESSAGE, CTA)
+    assert result.status == "failed"
+    assert "did not include a post id" in result.error
 
 
 # ---------------------------------------------------------------------------

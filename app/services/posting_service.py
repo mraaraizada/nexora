@@ -14,9 +14,9 @@ from app.config import settings
 from app.platforms.base import PlatformAdapter
 from app.platforms.bluesky import BlueskyAdapter
 from app.platforms.devto import DevToAdapter
-from app.platforms.discord import DiscordAdapter
 from app.platforms.mastodon import MastodonAdapter
 from app.platforms.telegram import TelegramAdapter
+from app.platforms.writeas import WriteAsAdapter
 from app.schemas import PlatformResult
 from app.services.result_service import aggregate
 from app.services.validation_service import validate_message
@@ -25,7 +25,7 @@ from app.services.validation_service import validate_message
 PLATFORM_ADAPTERS: list[PlatformAdapter] = [
     TelegramAdapter(),
     MastodonAdapter(),
-    DiscordAdapter(),
+    WriteAsAdapter(),
     DevToAdapter(),
     BlueskyAdapter(),
 ]

@@ -21,8 +21,6 @@ def configured_all(monkeypatch):
     monkeypatch.setattr(settings, "telegram_channel_username", "chan")
     monkeypatch.setattr(settings, "mastodon_instance_url", "https://mastodon.example")
     monkeypatch.setattr(settings, "mastodon_access_token", "tok")
-    monkeypatch.setattr(settings, "discord_webhook_url", "https://discord.com/api/webhooks/1/abc")
-    monkeypatch.setattr(settings, "discord_guild_id", "1")
     monkeypatch.setattr(settings, "devto_api_key", "tok")
     monkeypatch.setattr(settings, "bluesky_handle", "test.bsky.social")
     monkeypatch.setattr(settings, "bluesky_app_password", "tok")
@@ -31,7 +29,7 @@ def configured_all(monkeypatch):
 def _mock_all_success():
     respx.post("https://api.telegram.org/bottok/sendMessage").mock(return_value=httpx.Response(200, json={"ok": True, "result": {"message_id": 1}}))
     respx.post("https://mastodon.example/api/v1/statuses").mock(return_value=httpx.Response(200, json={"url": "https://mastodon.example/@u/1", "visibility": "public"}))
-    respx.post("https://discord.com/api/webhooks/1/abc", params={"wait": "true"}).mock(return_value=httpx.Response(200, json={"id": "1", "channel_id": "2"}))
+    respx.post("https://write.as/api/posts").mock(return_value=httpx.Response(200, json={"data": {"id": "1", "slug": None}}))
     respx.post("https://dev.to/api/articles").mock(return_value=httpx.Response(201, json={"url": "https://dev.to/u/p", "published": True}))
     respx.post("https://bsky.social/xrpc/com.atproto.server.createSession").mock(return_value=httpx.Response(200, json={"accessJwt": "j", "did": "did:plc:1"}))
     respx.post("https://bsky.social/xrpc/com.atproto.repo.createRecord").mock(return_value=httpx.Response(200, json={"uri": "at://did:plc:1/app.bsky.feed.post/r"}))
@@ -57,7 +55,7 @@ async def test_one_platform_fails_rest_still_attempted():
     by_platform = {r.platform: r for r in response.results}
     assert by_platform["Telegram"].status == "failed"
     assert by_platform["Mastodon"].status == "success"
-    assert by_platform["Discord"].status == "success"
+    assert by_platform["Write.as"].status == "success"
     assert by_platform["Dev.to"].status == "success"
     assert by_platform["Bluesky"].status == "success"
 
@@ -73,7 +71,7 @@ async def test_multiple_platforms_fail_partial_success():
     statuses = {r.platform: r.status for r in response.results}
     assert statuses["Telegram"] == "failed"
     assert statuses["Mastodon"] == "failed"
-    assert statuses["Discord"] == "success"
+    assert statuses["Write.as"] == "success"
     assert statuses["Dev.to"] == "success"
     assert statuses["Bluesky"] == "success"
 
@@ -82,7 +80,7 @@ async def test_multiple_platforms_fail_partial_success():
 async def test_all_platforms_fail():
     respx.post("https://api.telegram.org/bottok/sendMessage").mock(return_value=httpx.Response(500))
     respx.post("https://mastodon.example/api/v1/statuses").mock(return_value=httpx.Response(500))
-    respx.post("https://discord.com/api/webhooks/1/abc", params={"wait": "true"}).mock(return_value=httpx.Response(500))
+    respx.post("https://write.as/api/posts").mock(return_value=httpx.Response(500))
     respx.post("https://dev.to/api/articles").mock(return_value=httpx.Response(500))
     respx.post("https://bsky.social/xrpc/com.atproto.server.createSession").mock(return_value=httpx.Response(500))
 

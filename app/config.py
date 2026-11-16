@@ -20,10 +20,10 @@ class Settings:
     mastodon_instance_url: str = (os.getenv("MASTODON_INSTANCE_URL") or "https://mastodon.social").rstrip("/")
     mastodon_access_token: str | None = os.getenv("MASTODON_ACCESS_TOKEN") or None
 
-    discord_webhook_url: str | None = os.getenv("DISCORD_WEBHOOK_URL") or None
-    discord_guild_id: str | None = os.getenv("DISCORD_GUILD_ID") or None
-
     devto_api_key: str | None = os.getenv("DEVTO_API_KEY") or None
+
+    # Optional — Write.as supports fully anonymous posting with no token at all.
+    writeas_access_token: str | None = os.getenv("WRITEAS_ACCESS_TOKEN") or None
 
     bluesky_handle: str | None = os.getenv("BLUESKY_HANDLE") or None
     bluesky_app_password: str | None = os.getenv("BLUESKY_APP_PASSWORD") or None

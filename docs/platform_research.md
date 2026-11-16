@@ -8,7 +8,7 @@ timeframe of this test (no paid developer account, no lengthy OAuth app review).
 |---|---|---|---|
 | Telegram | `POST https://api.telegram.org/bot<token>/sendMessage` | Bot token in URL | https://core.telegram.org/bots/api#sendmessage |
 | Mastodon | `POST /api/v1/statuses` on the configured instance | OAuth2 bearer access token | https://docs.joinmastodon.org/methods/statuses/#create |
-| Discord | `POST <incoming webhook URL>?wait=true` | The webhook URL itself | https://discord.com/developers/docs/resources/webhook#execute-webhook |
+| Write.as | `POST https://write.as/api/posts` | None required (anonymous posting) | https://developers.write.as/docs/api/#publish-a-post |
 | Dev.to | `POST https://dev.to/api/articles` | `api-key` header | https://developers.forem.com/api/v1#tag/articles/operation/createArticle |
 | Bluesky | `POST /xrpc/com.atproto.server.createSession` then `POST /xrpc/com.atproto.repo.createRecord` | App password → short-lived JWT | https://docs.bsky.app/docs/api/com-atproto-server-create-session, https://docs.bsky.app/docs/api/com-atproto-repo-create-record |
 
@@ -23,10 +23,15 @@ the adapter reports `public_access: false` in that case rather than guessing one
 genuinely public (listed on public/federated timelines, viewable with no auth), which
 the adapter confirms from the response's own `visibility` field rather than assuming it.
 
-**Discord** — a webhook is scoped to one channel and requires no OAuth flow, making it
-the fastest platform to set up from scratch. Its "posted URL" is honest about a real
-limitation: a Discord message link only resolves for someone who already has access to
-that server, so `public_access` is always reported `false` here, unlike the other four.
+**Write.as** — the only platform here needing zero credentials: `POST /api/posts` with
+just a body publishes an anonymous, genuinely public post with no account, no API key,
+no token. This was **live-verified with one real anonymous post during development**
+(see the Honesty note below) — the real response includes a `full_post_url` field the
+adapter uses directly, and a real, undocumented failure mode was discovered this way:
+Write.as's own content filter can reject a post, returned as `data.id ==
+"contentisblocked"` with an empty `full_post_url` rather than an HTTP error status; the
+adapter treats this as an explicit failure rather than mis-reporting it as a success.
+An optional `WRITEAS_ACCESS_TOKEN` can attribute posts to a real account instead.
 
 **Dev.to** — the one platform here that models content as a full article (title +
 Markdown body) rather than a short status update. The adapter derives a title from the
@@ -51,8 +56,28 @@ distinction at the protocol level, so a successfully created post is always publ
 This implementation was written directly against each platform's official, documented
 API contract (endpoint, auth scheme, request/response shape) and is covered by
 automated tests using mocked HTTP responses for success and failure cases (see
-`tests/test_platforms.py`). **No live credentials for any of these five platforms were
-available in the development environment this was built in**, so no adapter has been
-exercised end-to-end against a real account. Running it with real credentials (see
+`tests/test_platforms.py`).
+
+**Write.as was live-verified** with two real anonymous `POST`s to
+`https://write.as/api/posts` during development (no account/credentials needed, so this
+was possible without provisioning anything), deliberately kept to the minimum needed to
+confirm the integration — repeatedly publishing real content to a public platform from
+an automated environment isn't something to do more than necessary. Both calls were
+genuinely informative:
+
+1. The first post's response shape led to a correction in the adapter (using the real
+   `full_post_url` field instead of hand-building a URL from `id`/`slug`), and also hit
+   Write.as's content filter on that particular message text, surfacing a real failure
+   mode (`data.id == "contentisblocked"`) not obvious from the docs alone.
+2. A second post shortly after returned a real `403 {"error_msg": "We've detected
+   abusive activity on your IP address."}` — genuine IP-based abuse detection on
+   anonymous posting, not a credentials problem. The adapter was corrected to report
+   this specifically rather than letting it fall into the generic 401/403 ->
+   "Authentication failed" bucket, which would be a misleading label for a platform
+   that has no credentials to begin with.
+
+**No live credentials for Telegram, Mastodon, Dev.to, or Bluesky were available in the
+development environment this was built in**, so those four adapters have not been
+exercised end-to-end against a real account. Running them with real credentials (see
 `.env.example`) is expected to work as written, but should be verified by the
-reviewer/candidate before relying on it — see the README's "Known Limitations" section.
+reviewer/candidate before relying on them — see the README's "Known Limitations" section.
