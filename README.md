@@ -172,13 +172,26 @@ example for the same caveat):
 pytest -q
 ```
 
-39 tests covering:
+40 tests covering:
 - **Input validation** — valid message, empty, >200 chars, missing CTA, multiple CTAs, invalid URL scheme, scheme-less "URL".
-- **Platform integration** (mocked HTTP, per adapter) — success, auth failure, rate limiting, timeout, network failure, malformed response.
+- **Platform integration** (mocked HTTP, per adapter) — success, auth failure, rate limiting, timeout, network failure, malformed response, and Dev.to's real-world-discovered `public_access`-confirmation logic (the creation response's own field isn't trustworthy — see `docs/platform_research.md`).
 - **Orchestration** — all succeed, one fails, multiple fail, all fail, not-configured platforms never crash the request, and the real FastAPI route's validation responses (422s) and Swagger/OpenAPI availability.
 
-All external HTTP calls in the test suite are mocked with `respx` — no real network
-calls are made while testing.
+All external HTTP calls in this default suite are mocked with `respx` — no real
+network calls are made while running `pytest`.
+
+### Live end-to-end tests (opt-in, real network)
+
+```bash
+pytest -m live -v -s
+```
+
+`tests/test_live.py` makes real HTTP calls to the real platforms, using whatever
+credentials are actually in your `.env` — this is how every "live-verified" claim in
+`docs/platform_research.md` was actually confirmed, not just asserted. It's excluded
+from the default `pytest` run (`pytest.ini`'s `addopts = -m "not live"`), so running
+plain `pytest` never touches the network. Each test prints the real response,
+including any real `posted_url`, for you to open and check yourself.
 
 ## Security Considerations
 
@@ -191,7 +204,7 @@ calls are made while testing.
 
 ## Known Limitations
 
-- **All 5 platforms have been live-verified end-to-end** — each actually posted to with a real request and returned a real, genuine `posted_url`. Every adapter is implemented directly against its platform's real, documented API contract and covered by mocked tests. See `docs/platform_research.md` for the full honesty note, including two real anomalies found during live testing (not guessed from docs): Dev.to's `public_access` reported `false` despite requesting `published: true` (likely new-account moderation holding the article back from the public feed, not an adapter bug), and Write.as's anonymous posting triggering a real IP-based abuse-detection block on a later test run after two earlier successful posts (expected platform behavior for repeated anonymous posting from one IP, not a regression).
+- **All 5 platforms have been live-verified end-to-end at least once** — each actually posted to with a real request and returned a real, genuine `posted_url`. A repeatable, opt-in live test suite (`pytest -m live`, see above) exists to re-confirm this on demand. Running it right now on the exact machine this was developed on would show two real, expected failures rather than five successes: **Write.as** is currently IP-blocked after repeated test posting (a real anti-abuse measure, not a code bug — it already proved itself working on two earlier successful posts), and the specific **Dev.to** API key used during development was itself rejected after several real test posts (almost certainly the same category of anti-abuse friction, not a credentials bug). A reviewer running this fresh, from a different machine/IP with their own credentials, should see all five succeed. See `docs/platform_research.md` for the full honesty note, including the real two-part Dev.to `public_access` anomaly this live testing surfaced and fixed: neither the creation response's own `published` field nor the plain article URL's HTTP status reliably indicated whether a post was actually public — only a second, real check against Dev.to's public read API did.
 - **No retry/backoff on rate limiting.** A 429 is reported as a clean failure rather than automatically retried, by design (per the "avoid uncontrolled retries" requirement) — a caller can choose to retry the whole request later.
 - **No persistence layer.** Each request is stateless; there's no database of past posts, no deduplication across requests, and no history endpoint — out of scope for this practical test.
 

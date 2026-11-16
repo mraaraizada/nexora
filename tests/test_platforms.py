@@ -175,14 +175,30 @@ async def test_writeas_malformed_response(client):
 
 
 @respx.mock
-async def test_devto_success(client):
+async def test_devto_success_confirms_via_public_read_endpoint(client):
     respx.post("https://dev.to/api/articles").mock(
-        return_value=httpx.Response(201, json={"url": "https://dev.to/user/post-1", "published": True})
+        return_value=httpx.Response(201, json={"url": "https://dev.to/user/post-1", "slug": "post-1", "user": {"username": "user"}, "published": False})
     )
+    respx.get("https://dev.to/api/articles/user/post-1").mock(return_value=httpx.Response(200, json={"id": 1}))
     result = await DevToAdapter().publish(client, MESSAGE, CTA)
     assert result.status == "success"
     assert result.posted_url == "https://dev.to/user/post-1"
+    # Live-observed real behavior: the creation response's own `published` field is NOT
+    # trustworthy (it said false here, same as a real live test run did) — public_access
+    # must come from actually confirming the article is readable via the public API,
+    # which it is in this test (the GET mock above returns 200).
     assert result.public_access is True
+
+
+@respx.mock
+async def test_devto_success_but_not_actually_public(client):
+    respx.post("https://dev.to/api/articles").mock(
+        return_value=httpx.Response(201, json={"url": "https://dev.to/user/post-2", "slug": "post-2", "user": {"username": "user"}, "published": True})
+    )
+    respx.get("https://dev.to/api/articles/user/post-2").mock(return_value=httpx.Response(404))
+    result = await DevToAdapter().publish(client, MESSAGE, CTA)
+    assert result.status == "success"  # the article was still created
+    assert result.public_access is False  # but genuinely not publicly readable
 
 
 @respx.mock
