@@ -199,11 +199,11 @@ As part of our recruitment process, following our official company social media 
 
 **1. Follow Dxora Technologies on LinkedIn**
 
-https://www.linkedin.com/company/dxora-technologies
+https://www.linkedin.com/company/dxora-technologies 
 
 **2. Follow CREST on Instagram**
 
-https://www.instagram.com/crestspot/
+
 
 **Important:** Please make sure to share your LinkedIn and Instagram profile links while submitting your application for verification.
 
