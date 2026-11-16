@@ -54,6 +54,9 @@ and correct behavior even when it produces a result worth double-checking by han
 **Bluesky** — the AT Protocol has no API-key concept; it's a two-step login (app
 password → access JWT) then a record-create call. Posts have no private/public
 distinction at the protocol level, so a successfully created post is always public.
+**Live-verified** with a real handle + app password (see Honesty note) — returned a
+real `status: "success"` with a genuine `https://bsky.app/profile/<handle>/post/<rkey>`
+URL, confirming the two-step login-then-post flow and URL construction are correct.
 
 ## Platforms considered and not used
 
@@ -100,10 +103,13 @@ isolated `createAccount` call attempted on its own). The real response returned
 above for the one real anomaly it surfaced (`public_access` reported `false` despite
 requesting `published: true`).
 
-**No live credentials for Mastodon or Bluesky were available in the development
-environment this was built in**, so those two adapters have not been exercised
-end-to-end against a real account. Running them with real credentials (see
-`.env.example` / `SETUP_CHECKLIST.md`) is expected to work as written, but should be
-verified by the reviewer/candidate before relying on them — see the README's "Known
-Limitations" section. Three of five platforms (Write.as, Telegra.ph, Dev.to) are now
-confirmed genuinely working end-to-end with real posted URLs.
+**Bluesky was live-verified** with a real handle and app password, returning a real
+`status: "success"` and a genuine `bsky.app` post URL on the first attempt — no issues
+surfaced.
+
+**No live credentials for Mastodon were available in the development environment this
+was built in**, so that's the only adapter not exercised end-to-end against a real
+account. Running it with a real access token (see `.env.example` / `SETUP_CHECKLIST.md`)
+is expected to work as written, but should be verified before relying on it — see the
+README's "Known Limitations" section. **4 of 5 platforms (Write.as, Telegra.ph, Dev.to,
+Bluesky) are now confirmed genuinely working end-to-end with real posted URLs.**
