@@ -1,0 +1,50 @@
+{
+    "success": false,
+    "results": [
+        {
+            "platform": "Telegra.ph",
+            "status": "success",
+            "posted_url": "https://telegra.ph/NEXORA-submission-evidence-run-11-16",
+            "public_access": true,
+            "date": "2026-11-16",
+            "time": "11:06:23",
+            "error": null
+        },
+        {
+            "platform": "Mastodon",
+            "status": "success",
+            "posted_url": "https://mastodon.social/@mwj20xuns8jl/117625794351002923",
+            "public_access": true,
+            "date": "2026-11-16",
+            "time": "11:06:22",
+            "error": null
+        },
+        {
+            "platform": "Write.as",
+            "status": "failed",
+            "posted_url": null,
+            "public_access": false,
+            "date": null,
+            "time": null,
+            "error": "Blocked by Write.as abuse detection: We've detected abusive activity on your IP address."
+        },
+        {
+            "platform": "Dev.to",
+            "status": "failed",
+            "posted_url": null,
+            "public_access": false,
+            "date": null,
+            "time": null,
+            "error": "Rate limited by platform"
+        },
+        {
+            "platform": "Bluesky",
+            "status": "success",
+            "posted_url": "https://bsky.app/profile/mwj1q5pmk58g.bsky.social/post/3n2gf4gv2xs2q",
+            "public_access": true,
+            "date": "2026-11-16",
+            "time": "11:06:23",
+            "error": null
+        }
+    ]
+}

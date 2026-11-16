@@ -20,7 +20,7 @@ timed Python practical test (FastAPI backend engineering).
 - Fully concurrent, isolated publishing via `asyncio.gather` — one platform's exception or failure never affects the others.
 - Honest, specific failure reporting: missing credentials, auth failure, rate limiting, timeout, and network errors are each reported distinctly, never silently skipped or faked as success.
 - Interactive Swagger docs at `/docs`.
-- 34 automated tests (`pytest`), all external HTTP mocked — no network calls during the test suite.
+- 40 automated tests (`pytest`), all external HTTP mocked — no network calls during the test suite. (A separate, opt-in live end-to-end suite also exists — see Testing below.)
 
 ## Technology Stack
 
